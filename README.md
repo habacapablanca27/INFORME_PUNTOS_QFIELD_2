@@ -27,7 +27,9 @@ leyendo el campo `FecHoraLec` (formato inglés `Mon Aug 31 09:50:28 2026`).
 5. **Incluir puntos sin fecha** (casilla, marcada por defecto): añade los puntos con FecHoraLec vacío/NULL
    que tengan AL MENOS UNA foto (Situacion, FInmueble, FContador o FArqueta). Si las 4 fotos están vacías, no cuentan.
    En el PDF salen como fila "Puntos sin fecha" en el resumen (suman al total) y en una tabla aparte al final.
-6. **🔢 Contar** muestra el recuento sin generar PDF. **📄 Generar PDF** lo crea y lo abre.
+6. **Se borra?**: los puntos con el campo booleano `Se borra?` en TRUE no se contabilizan (ni con fecha ni sin fecha).
+   El panel y el PDF indican cuántos se han dejado fuera.
+7. **🔢 Contar** muestra el recuento sin generar PDF. **📄 Generar PDF** lo crea y lo abre.
 
 La hora final es exacta: "hasta las 10:00" incluye 10:00:00 pero no 10:00:25. "Todo el día" (23:59) llega hasta 23:59:59.
 

@@ -1,5 +1,5 @@
 // main.qml — Informe de puntos por horario (Plugin QField)
-// Versión 1.5.0 — compatible QField 3.x (incluye "Puntos sin fecha")
+// Versión 1.6.0 — compatible QField 3.x (incluye "Puntos sin fecha"; excluye los marcados "Se borra?")
 //   capa activa por defecto, opciones persistentes, avisos de fechas, columnas en blanco
 // Genera un PDF con los puntos de una capa cuyo campo de fecha/hora
 // (por defecto "FecHoraLec", formato "Mon Aug 31 09:50:28 2026")
@@ -30,6 +30,8 @@ Item {
     property bool   incluirSinFecha: true    // "Incluir puntos sin fecha"
     // Un punto sin fecha cuenta si tiene AL MENOS UNA de estas fotos (si las 4 están vacías, no cuenta)
     readonly property var camposFoto: ["Situacion", "FInmueble", "FContador", "FArqueta"]
+    // Los puntos con este campo booleano en TRUE no se contabilizan como punto cogido
+    readonly property string campoSeBorra: "Se borra?"
 
     // Selecciones recordadas por NOMBRE (se mantienen al cerrar/abrir el panel)
     property string selCapaNombre: ""
@@ -271,6 +273,13 @@ Item {
         var t = String(v).trim()
         return t === "" || t.toUpperCase() === "NULL"
     }
+    // TRUE en cualquiera de sus formas (booleano, 1, "true", "t", "verdadero", "sí"...)
+    function esVerdadero(v) {
+        if (v === true || v === 1) return true
+        if (v === null || v === undefined || v === false || v === 0) return false
+        var t = String(v).trim().toLowerCase()
+        return t === "true" || t === "t" || t === "1" || t === "verdadero" || t === "si" || t === "sí" || t === "yes" || t === "y"
+    }
     function tieneFoto(f, fotos) {
         for (var i = 0; i < fotos.length; i++) if (!vacio(f.attribute(fotos[i]))) return true
         return false
@@ -288,6 +297,8 @@ Item {
         var fotos = []
         for (var q = 0; q < camposFoto.length; q++) if (campos.indexOf(camposFoto[q]) >= 0) fotos.push(camposFoto[q])
 
+        var hayBorra = campos.indexOf(campoSeBorra) >= 0
+        var excluidos = 0        // puntos que habrían contado pero tienen "Se borra?" = TRUE
         var regs = [], sinFRegs = [], total = 0, vacios = 0, ilegibles = 0, fMin = null, fMax = null, futuras = 0
         var limiteFuturo = new Date().getTime() + 3600000       // 1 h de margen
         var it
@@ -297,10 +308,12 @@ Item {
             var f = it.next()
             total++
             var raw = f.attribute(campo), k, vals
+            var borrar = hayBorra && esVerdadero(f.attribute(campoSeBorra))
             if (vacio(raw)) {
                 vacios++
                 // Punto sin fecha: sólo si tiene al menos una foto
                 if (incluirSinFecha && fotos.length > 0 && tieneFoto(f, fotos)) {
+                    if (borrar) { excluidos++; continue }
                     vals = []
                     for (k = 0; k < cols.length; k++) vals.push(valorTexto(f, cols[k]))
                     sinFRegs.push({ fecha: null, fid: String(f.id), vals: vals })
@@ -313,6 +326,7 @@ Item {
             if (!fMax || d > fMax) fMax = d
             if (d.getTime() > limiteFuturo) futuras++
             if (!Inf.dentroFiltro(d, filtro)) continue
+            if (borrar) { excluidos++; continue }
             vals = []
             for (k = 0; k < cols.length; k++) vals.push(valorTexto(f, cols[k]))
             regs.push({ fecha: d, fid: String(f.id), vals: vals })
@@ -329,12 +343,13 @@ Item {
             extra.push("La capa no tiene los campos de foto (" + camposFoto.join(", ") + "): no se pueden incluir puntos sin fecha.")
         else if (incluirSinFecha && fotos.length < camposFoto.length)
             extra.push("Para los puntos sin fecha sólo se han revisado las fotos: " + fotos.join(", ") + ".")
+        if (!hayBorra) extra.push("La capa no tiene el campo '" + campoSeBorra + "': no se ha podido excluir ningún punto marcado para borrar.")
         if (ilegibles > 0) extra.push(ilegibles + " registro(s) tienen en '" + campo + "' un valor que no es una fecha: no se incluyen.")
         if (futuras > 0) extra.push(futuras + " punto(s) tienen fecha/hora futura: revisa la hora de la tablet.")
         if (regs.length === 0 && fMin)
             extra.push("No hay puntos con fecha en el rango. La capa tiene puntos entre el " + Inf.fmtFechaHora(fMin) + " y el " + Inf.fmtFechaHora(fMax) + ".")
         if (extra.length) avisos = (avisos ? avisos + "\n" : "") + "⚠ " + extra.join("\n⚠ ")
-        return { registros: regs, sinFechaRegs: sinFRegs, totalCapa: total, sinFecha: vacios + ilegibles, fMin: fMin, fMax: fMax }
+        return { registros: regs, sinFechaRegs: sinFRegs, totalCapa: total, sinFecha: vacios + ilegibles, fMin: fMin, fMax: fMax, excluidos: excluidos }
     }
 
     function contar() {
@@ -349,7 +364,8 @@ Item {
         if (nSF > 0) lineas.push("• Puntos sin fecha: " + nSF)
         resultado = (r.registros.length + nSF) + " puntos en el rango" +
                     (nSF > 0 ? " (" + r.registros.length + " con fecha + " + nSF + " sin fecha)" : "") + "\n" + filtro.texto +
-                    (lineas.length ? "\n\n" + lineas.join("\n") : "")
+                    (lineas.length ? "\n\n" + lineas.join("\n") : "") +
+                    (r.excluidos > 0 ? "\n\n(No contados por '" + campoSeBorra + "' = TRUE: " + r.excluidos + ")" : "")
         if (avisos) toast("⚠ Revisa los avisos del panel")
     }
 
@@ -387,6 +403,8 @@ Item {
             totalCapa: r.totalCapa,
             sinFecha:  r.sinFecha,
             sinFechaRegs: r.sinFechaRegs,
+            excluidos:    r.excluidos,
+            campoSeBorra: campoSeBorra,
             generado:  Inf.fmtFechaHora(ahora).substring(0, 16),
             registros: r.registros,
             etiquetas: etq,
@@ -404,7 +422,9 @@ Item {
         ultimoPdf = ruta
         var nTot = r.registros.length + r.sinFechaRegs.length
         resultado = nTot + " puntos en el rango" + (r.sinFechaRegs.length ? " (" + r.sinFechaRegs.length + " sin fecha)" : "") +
-                    "\n" + filtro.texto + "\nPDF: " + ruta.split("/").pop()
+                    "\n" + filtro.texto +
+                    (r.excluidos > 0 ? "\n(No contados por '" + campoSeBorra + "' = TRUE: " + r.excluidos + ")" : "") +
+                    "\nPDF: " + ruta.split("/").pop()
         toast(avisos ? "✔ PDF generado (" + nTot + " puntos) — revisa los avisos" : "✔ PDF generado (" + nTot + " puntos)")
         abrirPdf()
     }

@@ -3,6 +3,6 @@ name=Informe de puntos por horario
 description=Genera un PDF con el recuento y listado de los puntos de una capa cuyo campo de fecha/hora (FecHoraLec) cae dentro de un rango de fechas y horas.
 author=H.A.B.A.
 icon=icon.png
-version=1.5.0
+version=1.6.0
 qfield_minimum_version=3.0
 homepage=https://github.com/habacapablanca27/INFORME_PUNTOS_QFIELD

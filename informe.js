@@ -321,7 +321,7 @@ function calcularColumnas(registros, extras, fs, disponible) {
 // datos = { titulo, capa, campo, filtroTxt, total, totalCapa, sinFecha,
 //           generado, registros:[{fecha,fid,vals:[..]}], etiquetas:[..hasta 5], stats,
 //           tipo: diario|semanal|mensual, responsable, tablet,
-//           sinFechaRegs:[{fecha:null,fid,vals}] }
+//           sinFechaRegs:[{fecha:null,fid,vals}], excluidos, campoSeBorra }
 function generarPDF(datos) {
     var paginas = [], pg, y
     var st = datos.stats
@@ -361,6 +361,7 @@ function generarPDF(datos) {
     pg.texto(MX + 18, y + 96, "Generado: " + datos.generado, 9, false, GRIS)
     var lineaReg = "Registros en la capa: " + datos.totalCapa
     if (datos.sinFecha > 0) lineaReg += "   (sin fecha: " + datos.sinFecha + ")"
+    if (datos.excluidos > 0) lineaReg += "   |   No contados por '" + (datos.campoSeBorra || "Se borra?") + "': " + datos.excluidos
     pg.texto(MX + 18, y + 112, recortar(lineaReg, 9, false, W - 2 * MX - 170), 9, false, GRIS)
     pg.textoDer(W - MX - 18, y + 30, "PUNTOS EN EL RANGO", 9, true, GRIS)
     pg.textoDer(W - MX - 18, y + 76, String(gran), 40, true, AZUL)
